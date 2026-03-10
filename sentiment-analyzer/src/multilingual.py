@@ -85,6 +85,39 @@ def predict_vi_lexicon(text: str) -> dict:
         "method": "lexicon_vi"
     }
 
+
+# ── Vietnamese Trained Model ──────────────────────────────────────
+import os as _os, pickle as _pickle, re as _re
+
+def _load_vi_model():
+    path = _os.path.join(_os.path.dirname(__file__), '../models/vi_model.pkl')
+    if _os.path.exists(path):
+        with open(path, 'rb') as f:
+            return _pickle.load(f)
+    return None
+
+_VI_MODEL = _load_vi_model()
+
+def _preprocess_vi_ml(text: str) -> str:
+    text = text.lower()
+    text = _re.sub(r'https?://\S+', '', text)
+    text = _re.sub(r'[^\w\s]', ' ', text, flags=_re.UNICODE)
+    return text.strip()
+
+def predict_vi_trained(text: str) -> dict:
+    """Dùng trained TF-IDF model cho tiếng Việt"""
+    if _VI_MODEL is None:
+        return predict_vi_lexicon(text)  # fallback
+    pred  = _VI_MODEL.predict([_preprocess_vi_ml(text)])[0]
+    proba = _VI_MODEL.predict_proba([_preprocess_vi_ml(text)])[0]
+    return {
+        "sentiment": "positive" if pred==1 else "negative",
+        "confidence": round(float(proba[pred]), 4),
+        "positive_prob": round(float(proba[1]), 4),
+        "negative_prob": round(float(proba[0]), 4),
+        "method": "tfidf_vi_trained"
+    }
+
 # ── Router ─────────────────────────────────────────────────────────
 def predict_multilingual(text: str, en_model) -> dict:
     """Route text sang đúng model theo ngôn ngữ detect được"""
@@ -96,7 +129,7 @@ def predict_multilingual(text: str, en_model) -> dict:
     lang = detect_language(text)
 
     if lang == 'vi':
-        result = predict_vi_lexicon(text)
+        result = predict_vi_trained(text)
         result["language"] = "vi"
         return result
 

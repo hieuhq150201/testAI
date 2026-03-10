@@ -1,0 +1,6 @@
+{
+  "model": "Word unigram+bigram C=1.0",
+  "accuracy": 1.0,
+  "train_size": 228,
+  "test_size": 57
+}
