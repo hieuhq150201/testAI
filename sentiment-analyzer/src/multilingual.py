@@ -107,15 +107,23 @@ def _preprocess_vi_ml(text: str) -> str:
 def predict_vi_trained(text: str) -> dict:
     """Dùng trained TF-IDF model cho tiếng Việt"""
     if _VI_MODEL is None:
-        return predict_vi_lexicon(text)  # fallback
-    pred  = _VI_MODEL.predict([_preprocess_vi_ml(text)])[0]
-    proba = _VI_MODEL.predict_proba([_preprocess_vi_ml(text)])[0]
+        return predict_vi_lexicon(text)
+    t = _preprocess_vi_ml(text)
+    if isinstance(_VI_MODEL, dict):
+        from scipy.sparse import hstack
+        fw = _VI_MODEL['word_vec'].transform([t])
+        fc = _VI_MODEL['char_vec'].transform([t])
+        pred  = _VI_MODEL['clf'].predict(hstack([fw,fc]))[0]
+        proba = _VI_MODEL['clf'].predict_proba(hstack([fw,fc]))[0]
+    else:
+        pred  = _VI_MODEL.predict([t])[0]
+        proba = _VI_MODEL.predict_proba([t])[0]
     return {
         "sentiment": "positive" if pred==1 else "negative",
         "confidence": round(float(proba[pred]), 4),
         "positive_prob": round(float(proba[1]), 4),
         "negative_prob": round(float(proba[0]), 4),
-        "method": "tfidf_vi_trained"
+        "method": "tfidf_vi_trained_v2"
     }
 
 # ── Router ─────────────────────────────────────────────────────────

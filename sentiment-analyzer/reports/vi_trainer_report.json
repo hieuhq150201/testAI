@@ -1,6 +1,7 @@
 {
-  "model": "Word unigram+bigram C=1.0",
+  "model": "Word 1-3gram C=2",
   "accuracy": 1.0,
-  "train_size": 228,
-  "test_size": 57
+  "train_size": 864,
+  "test_size": 216,
+  "domains": 10
 }
