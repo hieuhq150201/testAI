@@ -14,7 +14,7 @@ class TestHealthEndpoints:
     def test_root_ok(self):
         r = client.get("/")
         assert r.status_code == 200
-        assert r.json()["version"] == "2.0.0"
+        assert r.json()["version"] == "3.0.0"
 
     def test_health_fields(self):
         r = client.get("/health")
@@ -134,3 +134,55 @@ class TestPerformance:
         t = time.time()
         client.post("/predict/batch", json={"texts": ["good movie"]*50})
         assert (time.time()-t)*1000 < 500
+
+# ── Sprint 5: Multilingual ─────────────────────────────────────────
+class TestMultilingualEndpoint:
+    def test_english_routed_correctly(self):
+        r = client.post("/predict/multilingual", json={"text": "This movie was absolutely amazing!"})
+        assert r.status_code == 200
+        data = r.json()
+        assert data["language"] == "en"
+        assert data["sentiment"] == "positive"
+
+    def test_vietnamese_detected(self):
+        r = client.post("/predict/multilingual", json={"text": "Phim này hay tuyệt vời, tôi rất thích!"})
+        assert r.status_code == 200
+        data = r.json()
+        assert data["language"] == "vi"
+        assert data["sentiment"] == "positive"
+
+    def test_vi_negative_detected(self):
+        r = client.post("/predict/multilingual", json={"text": "Phim dở tệ, chán lắm, thất vọng hoàn toàn."})
+        assert r.status_code == 200
+        assert r.json()["sentiment"] == "negative"
+
+    def test_method_field_present(self):
+        r = client.post("/predict/multilingual", json={"text": "good movie"})
+        assert "method" in r.json()
+
+    def test_empty_text_400(self):
+        assert client.post("/predict/multilingual", json={"text": ""}).status_code == 400
+
+# ── Sprint 6: Model Registry ───────────────────────────────────────
+class TestModelRegistry:
+    def test_models_list(self):
+        r = client.get("/models")
+        assert r.status_code == 200
+        data = r.json()
+        assert "versions" in data
+        assert "active" in data
+
+    def test_activate_invalid_version_400(self):
+        r = client.post("/models/activate", json={"version": "nonexistent_v999"})
+        assert r.status_code == 400
+
+    def test_activate_valid_version(self):
+        r = client.post("/models/activate", json={"version": "latest"})
+        assert r.status_code == 200
+        assert r.json()["active"] == "latest"
+        assert r.json()["cache"] == "cleared"
+
+    def test_health_shows_active_model(self):
+        data = client.get("/health").json()
+        assert "active_model" in data
+        assert "model_metadata" in data
