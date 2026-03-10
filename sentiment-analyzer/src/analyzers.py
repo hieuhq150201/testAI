@@ -96,7 +96,7 @@ def extract_video_id(url: str) -> str:
     raise ValueError("Không nhận ra YouTube URL. Dùng dạng: https://youtube.com/watch?v=VIDEO_ID")
 
 
-def get_youtube_comments(video_id: str, max_comments: int = 100) -> List[str]:
+def get_youtube_comments(video_id: str, max_comments: int = 500) -> List[str]:
     """Lấy comments từ YouTube (không cần API key)"""
     try:
         from youtube_comment_downloader import YoutubeCommentDownloader, SORT_BY_POPULAR
@@ -117,7 +117,7 @@ def get_youtube_comments(video_id: str, max_comments: int = 100) -> List[str]:
         raise ValueError(f"Lỗi lấy comments YouTube: {e}")
 
 
-def analyze_youtube(url: str, predict_fn, max_comments: int = 100) -> dict:
+def analyze_youtube(url: str, predict_fn, max_comments: int = 500) -> dict:
     video_id = extract_video_id(url)
 
     # Get video title via oEmbed (no API key needed)

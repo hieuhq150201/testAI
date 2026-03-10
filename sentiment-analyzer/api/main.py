@@ -145,7 +145,7 @@ def _predict_auto(text: str) -> dict:
 
 class URLInput(BaseModel):
     url: str
-    max_items: Optional[int] = 50
+    max_items: Optional[int] = 500
 
 @app.post("/analyze/url")
 def analyze_url_endpoint(input: URLInput):
@@ -169,7 +169,7 @@ def analyze_youtube_endpoint(input: URLInput):
         raise HTTPException(400, "URL cannot be empty")
     try:
         result = analyze_youtube(input.url, _predict_auto,
-                                 max_comments=min(input.max_items or 100, 200))
+                                 max_comments=min(input.max_items or 500, 1000))
         log_prediction(input.url, {"sentiment": result["overall_sentiment"],
                                    "confidence": result["avg_confidence"]}, source="youtube")
         return result
