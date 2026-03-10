@@ -15,3 +15,9 @@ aiofiles==25.1.0
 youtube-comment-downloader==0.1.78
 streamlit==1.55.0
 httpx==0.28.1
+
+# Sprint 9 — video facial emotion
+opencv-python-headless==4.13.0.92
+deepface==0.0.99
+tensorflow==2.20.0
+tf_keras==2.20.1
