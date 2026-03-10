@@ -138,7 +138,6 @@ def activate_model(body: ActivateModel):
 # ── Sprint 7: Source Analyzers ─────────────────────────────────────
 from fastapi import UploadFile, File as FastAPIFile
 from src.analyzers import analyze_url, analyze_youtube, analyze_file_content
-from src.video_analyzer import analyze_video_bytes
 from src.multilingual import predict_multilingual
 
 def _predict_auto(text: str) -> dict:

@@ -4,8 +4,6 @@ Stack: OpenCV face detection + DeepFace emotion analysis
 Emotions: angry, disgust, fear, happy, sad, surprise, neutral
 Sentiment: positive=[happy,surprise], negative=[angry,disgust,fear,sad], neutral=[neutral]
 """
-import cv2
-import numpy as np
 import os
 import tempfile
 from typing import List, Dict
@@ -27,7 +25,7 @@ def _ensure_deepface():
         from deepface import DeepFace  # noqa
         _deepface_loaded = True
 
-def analyze_frame_emotions(frame: np.ndarray) -> List[Dict]:
+def analyze_frame_emotions(frame) -> List[Dict]:
     """Analyze emotions in a single frame using DeepFace"""
     _ensure_deepface()
     from deepface import DeepFace
@@ -58,6 +56,8 @@ def analyze_frame_emotions(frame: np.ndarray) -> List[Dict]:
 
 def analyze_video_file(video_path: str, sample_fps: float = 1.0) -> Dict:
     """Sample video at sample_fps, detect faces+emotions, return sentiment summary"""
+    import cv2
+    import numpy as np
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
         raise ValueError(f"Không mở được video: {video_path}")
