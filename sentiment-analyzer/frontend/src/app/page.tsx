@@ -4,6 +4,7 @@ import { predictText, predictBatch, analyzeUrl, analyzeYoutube, PredictResult, S
 import { SentimentBadge } from "@/components/SentimentBadge";
 import { ProgressBar } from "@/components/ProgressBar";
 import { DonutChart } from "@/components/DonutChart";
+import { TopCommenters } from "@/components/TopCommenters";
 import { BarChartComp } from "@/components/BarChart";
 
 type Tab = "text" | "batch" | "url" | "youtube";
@@ -227,7 +228,8 @@ function UrlTab() {
 function YoutubeTab() {
   const [url, setUrl] = useState("");
   const [maxItems, setMaxItems] = useState(500);
-  const [result, setResult] = useState<SourceResult | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [result, setResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -261,13 +263,27 @@ function YoutubeTab() {
 
       {error && <ErrorBox msg={error} />}
       {loading && <LoadingCard icon="🎬" text={`Đang lấy ${maxItems.toLocaleString()} bình luận từ YouTube…`} />}
-      {result && <SourceCard result={result} showComments />}
+      {result && (
+        <>
+          <SourceCard result={result} showComments />
+          {(result.spam_filtered > 0 || result.top_positive_users?.length > 0) && (
+            <TopCommenters
+              topPositive={result.top_positive_users ?? []}
+              topNegative={result.top_negative_users ?? []}
+              spamFiltered={result.spam_filtered ?? 0}
+              spamRate={result.spam_rate ?? 0}
+              spamReasons={result.spam_reasons ?? {}}
+            />
+          )}
+        </>
+      )}
     </div>
   );
 }
 
 /* ── Shared Source Result Card ──────────────────────────────────── */
-function SourceCard({ result, showComments = false }: { result: SourceResult; showComments?: boolean }) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function SourceCard({ result, showComments = false }: { result: any; showComments?: boolean }) {
   return (
     <div className="space-y-4 animate-in">
       {result.title && (
@@ -281,7 +297,7 @@ function SourceCard({ result, showComments = false }: { result: SourceResult; sh
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <StatCard label="Kết quả" value={result.overall_sentiment === "positive" ? "Tích cực 😊" : "Tiêu cực 😞"}
           color={result.overall_sentiment === "positive" ? "text-emerald-400" : "text-rose-400"} small />
-        <StatCard label="Đã phân tích" value={result.total_analyzed.toLocaleString()} color="text-white" />
+        <StatCard label="Đã phân tích" value={`${result.total_analyzed.toLocaleString()}${result.total_fetched && result.total_fetched > result.total_analyzed ? ` / ${result.total_fetched.toLocaleString()}` : ""}`} color="text-white" />
         <StatCard label="Tích cực" value={`${(result.positive_rate * 100).toFixed(1)}%`} color="text-emerald-400" />
         <StatCard label="Tiêu cực" value={`${(result.negative_rate * 100).toFixed(1)}%`} color="text-rose-400" />
       </div>
@@ -328,7 +344,7 @@ function SourceCard({ result, showComments = false }: { result: SourceResult; sh
             <div key={col.title}>
               <h3 className={`text-sm font-semibold text-${col.cls}-400 mb-2`}>{col.title}</h3>
               <div className="space-y-2">
-                {(col.items ?? []).slice(0, 5).map((c, i) => (
+                {(col.items ?? []).slice(0, 5).map((c: {text:string;confidence:number}, i: number) => (
                   <div key={i} className={`bg-${col.cls}-500/10 border border-${col.cls}-500/20 rounded-lg px-3 py-2`}>
                     <p className="text-xs text-slate-200 line-clamp-2">{c.text}</p>
                     <p className={`text-xs text-${col.cls}-400 mt-1 font-mono`}>{(c.confidence * 100).toFixed(0)}%</p>
@@ -345,7 +361,7 @@ function SourceCard({ result, showComments = false }: { result: SourceResult; sh
         <div>
           <h3 className="text-sm font-semibold text-slate-300 mb-2">📝 Mẫu đoạn văn đã phân tích</h3>
           <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-            {result.sample_texts.map((s, i) => (
+            {result.sample_texts.map((s: {text:string;sentiment:string;confidence:number}, i: number) => (
               <div key={i} className={`flex items-start gap-2 border rounded-xl px-3 py-2
                 ${s.sentiment === "positive" ? "bg-emerald-500/10 border-emerald-500/20" : "bg-rose-500/10 border-rose-500/20"}`}>
                 <span className="shrink-0 mt-0.5">{s.sentiment === "positive" ? "😊" : "😞"}</span>

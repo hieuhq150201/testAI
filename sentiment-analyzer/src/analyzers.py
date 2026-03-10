@@ -96,8 +96,21 @@ def extract_video_id(url: str) -> str:
     raise ValueError("Không nhận ra YouTube URL. Dùng dạng: https://youtube.com/watch?v=VIDEO_ID")
 
 
+def _parse_votes(v) -> int:
+    """Parse votes: '8,9\xa0N' → 8900, '1.2K' → 1200, 42 → 42"""
+    if not v: return 0
+    s = str(v).replace("\xa0","").replace(",",".").strip()
+    try:
+        if s.upper().endswith("K"): return int(float(s[:-1]) * 1000)
+        if s.upper().endswith("N"): return int(float(s[:-1]) * 1000)  # N = nghìn (VI)
+        if s.upper().endswith("M"): return int(float(s[:-1]) * 1_000_000)
+        return int(float(s))
+    except Exception:
+        return 0
+
+
 def get_youtube_comments(video_id: str, max_comments: int = 500) -> List[str]:
-    """Lấy comments từ YouTube (không cần API key)"""
+    """Fetch YouTube comments — trả về list dict {text, author, votes}"""
     try:
         from youtube_comment_downloader import YoutubeCommentDownloader, SORT_BY_POPULAR
         downloader = YoutubeCommentDownloader()
@@ -109,7 +122,12 @@ def get_youtube_comments(video_id: str, max_comments: int = 500) -> List[str]:
         for c in gen:
             text = c.get("text", "").strip()
             if text and len(text) > 5:
-                comments.append(text)
+                comments.append({
+                    "text":   text,
+                    "author": c.get("author", "Unknown"),
+                    "votes":  _parse_votes(c.get("votes", 0)),
+                    "reply":  bool(c.get("reply", False)),
+                })
             if len(comments) >= max_comments:
                 break
         return comments
@@ -118,49 +136,31 @@ def get_youtube_comments(video_id: str, max_comments: int = 500) -> List[str]:
 
 
 def analyze_youtube(url: str, predict_fn, max_comments: int = 500) -> dict:
+    """Phân tích YouTube comments với bot detection + smart sampling"""
     video_id = extract_video_id(url)
+    if not video_id:
+        raise ValueError("URL YouTube không hợp lệ")
 
-    # Get video title via oEmbed (no API key needed)
-    title = "YouTube Video"
+    # Lấy title
+    title = f"YouTube Video ({video_id})"
     try:
-        oembed = requests.get(
-            f"https://www.youtube.com/oembed?url=https://youtube.com/watch?v={video_id}&format=json",
-            timeout=5
-        ).json()
-        title = oembed.get("title", title)
+        import requests as req
+        r = req.get(f"https://www.youtube.com/oembed?url=https://youtube.com/watch?v={video_id}&format=json", timeout=5)
+        if r.status_code == 200:
+            title = r.json().get("title", title)
     except Exception:
         pass
 
-    comments = get_youtube_comments(video_id, max_comments)
-    if not comments:
-        raise ValueError("Không lấy được comments (video private hoặc tắt comments)")
+    raw_comments = get_youtube_comments(video_id, max_comments)
 
-    results = [predict_fn(c) for c in comments]
-    agg = _aggregate(results)
-
-    # Top positive & negative
-    scored = list(zip(comments, results))
-    top_pos = sorted([(t,r) for t,r in scored if r["sentiment"]=="positive"],
-                     key=lambda x: x[1]["confidence"], reverse=True)[:3]
-    top_neg = sorted([(t,r) for t,r in scored if r["sentiment"]=="negative"],
-                     key=lambda x: x[1]["confidence"], reverse=True)[:3]
-
-    return {
-        "source": "youtube",
-        "url": url,
-        "video_id": video_id,
-        "title": title,
-        **agg,
-        "top_positive": [{"text": t[:150], "confidence": r["confidence"]} for t,r in top_pos],
-        "top_negative": [{"text": t[:150], "confidence": r["confidence"]} for t,r in top_neg],
-        "sample_comments": [
-            {"text": c[:150], "sentiment": r["sentiment"], "confidence": r["confidence"]}
-            for c, r in zip(comments[:5], results[:5])
-        ]
-    }
+    from src.bot_detector import analyze_comments_with_bot_detection
+    result = analyze_comments_with_bot_detection(raw_comments, predict_fn, sample_size=min(max_comments, 500))
+    result["source"] = "youtube"
+    result["url"]    = url
+    result["title"]  = title
+    return result
 
 
-# ── File Analyzer ─────────────────────────────────────────────────
 def analyze_file_content(content: str, filename: str, predict_fn) -> dict:
     """Analyze text file — mỗi dòng là 1 text"""
     ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "txt"

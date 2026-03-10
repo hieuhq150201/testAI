@@ -28,6 +28,23 @@ export interface SourceResult {
   top_negative?: Array<{ text: string; confidence: number }>;
 }
 
+
+export interface CommenterStat {
+  author: string;
+  positive: number;
+  negative: number;
+  comments: Array<{ text: string; sentiment: string; confidence: number }>;
+}
+
+export interface YouTubeResult extends SourceResult {
+  total_fetched: number;
+  spam_filtered: number;
+  spam_rate: number;
+  spam_reasons: Record<string, number>;
+  top_positive_users: CommenterStat[];
+  top_negative_users: CommenterStat[];
+}
+
 export async function predictText(text: string): Promise<PredictResult> {
   const r = await fetch(`${API_BASE}/predict/multilingual`, {
     method: "POST", headers: { "Content-Type": "application/json" },
