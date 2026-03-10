@@ -133,3 +133,66 @@ def activate_model(body: ActivateModel):
         return {"status": "ok", "active": body.version, "cache": "cleared"}
     except ValueError as e:
         raise HTTPException(400, str(e))
+
+# ── Sprint 7: Source Analyzers ─────────────────────────────────────
+from fastapi import UploadFile, File as FastAPIFile
+from src.analyzers import analyze_url, analyze_youtube, analyze_file_content, extract_video_id
+from src.multilingual import predict_multilingual
+
+def _predict_auto(text: str) -> dict:
+    """Wrapper: multilingual predict dùng active model"""
+    return predict_multilingual(text, registry.get_active())
+
+class URLInput(BaseModel):
+    url: str
+    max_items: Optional[int] = 50
+
+@app.post("/analyze/url")
+def analyze_url_endpoint(input: URLInput):
+    """🔗 Crawl URL → extract paragraphs → phân tích sentiment"""
+    if not input.url.strip():
+        raise HTTPException(400, "URL cannot be empty")
+    try:
+        result = analyze_url(input.url, _predict_auto)
+        log_prediction(input.url, {"sentiment": result["overall_sentiment"],
+                                   "confidence": result["avg_confidence"]}, source="url")
+        return result
+    except ValueError as e:
+        raise HTTPException(422, str(e))
+    except Exception as e:
+        raise HTTPException(500, f"Lỗi phân tích URL: {e}")
+
+@app.post("/analyze/youtube")
+def analyze_youtube_endpoint(input: URLInput):
+    """🎬 YouTube URL → lấy comments → phân tích sentiment"""
+    if not input.url.strip():
+        raise HTTPException(400, "URL cannot be empty")
+    try:
+        result = analyze_youtube(input.url, _predict_auto,
+                                 max_comments=min(input.max_items or 100, 200))
+        log_prediction(input.url, {"sentiment": result["overall_sentiment"],
+                                   "confidence": result["avg_confidence"]}, source="youtube")
+        return result
+    except ValueError as e:
+        raise HTTPException(422, str(e))
+    except Exception as e:
+        raise HTTPException(500, f"Lỗi phân tích YouTube: {e}")
+
+@app.post("/analyze/file")
+async def analyze_file_endpoint(file: UploadFile = FastAPIFile(...)):
+    """📄 Upload file CSV/TXT → phân tích từng dòng"""
+    allowed = {"csv", "txt"}
+    ext = file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else ""
+    if ext not in allowed:
+        raise HTTPException(400, f"Chỉ hỗ trợ: {allowed}. Nhận được: {ext}")
+    content_bytes = await file.read()
+    if len(content_bytes) > 5 * 1024 * 1024:  # 5MB limit
+        raise HTTPException(400, "File quá lớn (max 5MB)")
+    try:
+        content = content_bytes.decode("utf-8", errors="ignore")
+        result = analyze_file_content(content, file.filename, _predict_auto)
+        return result
+    except ValueError as e:
+        raise HTTPException(422, str(e))
+    except Exception as e:
+        raise HTTPException(500, f"Lỗi phân tích file: {e}")

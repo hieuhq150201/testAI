@@ -186,3 +186,61 @@ class TestModelRegistry:
         data = client.get("/health").json()
         assert "active_model" in data
         assert "model_metadata" in data
+
+# ── Sprint 7: Source Analyzers ─────────────────────────────────────
+class TestURLAnalyzer:
+    def test_valid_url(self):
+        r = client.post("/analyze/url", json={"url": "https://en.wikipedia.org/wiki/Inception"})
+        assert r.status_code == 200
+        data = r.json()
+        assert data["source"] == "url"
+        assert data["total_analyzed"] > 0
+        assert data["overall_sentiment"] in ["positive","negative"]
+        assert "positive_rate" in data
+        assert "sample_texts" in data
+
+    def test_url_response_structure(self):
+        r = client.post("/analyze/url", json={"url": "https://en.wikipedia.org/wiki/Titanic_(1997_film)"})
+        data = r.json()
+        for field in ["source","url","title","overall_sentiment","total_analyzed","positive_rate","negative_rate","avg_confidence","sample_texts"]:
+            assert field in data, f"Missing: {field}"
+
+    def test_empty_url_400(self):
+        assert client.post("/analyze/url", json={"url": ""}).status_code == 400
+
+    def test_invalid_url_422(self):
+        r = client.post("/analyze/url", json={"url": "not-a-url"})
+        assert r.status_code in [422, 500]
+
+class TestFileAnalyzer:
+    def _upload(self, content: str, filename: str):
+        return client.post("/analyze/file",
+            files={"file": (filename, content.encode(), "text/plain")})
+
+    def test_txt_file(self):
+        content = "\n".join(["This movie was amazing!","Terrible waste of time.",
+                              "Great acting and story.","Boring and predictable."])
+        r = self._upload(content, "reviews.txt")
+        assert r.status_code == 200
+        data = r.json()
+        assert data["total_analyzed"] == 4
+        assert data["source"] == "file"
+
+    def test_csv_file(self):
+        content = "text,rating\nAmazing film!,5\nTerrible movie,1\nGreat story,4"
+        r = client.post("/analyze/file",
+            files={"file": ("reviews.csv", content.encode(), "text/csv")})
+        assert r.status_code == 200
+        assert r.json()["total_analyzed"] == 3
+
+    def test_invalid_extension_400(self):
+        r = client.post("/analyze/file",
+            files={"file": ("data.pdf", b"some content", "application/pdf")})
+        assert r.status_code == 400
+
+    def test_sample_texts_in_response(self):
+        content = "\n".join([f"Review number {i} was great!" for i in range(10)])
+        r = self._upload(content, "test.txt")
+        data = r.json()
+        assert "sample_texts" in data
+        assert len(data["sample_texts"]) <= 5
