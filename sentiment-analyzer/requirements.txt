@@ -1,25 +1,16 @@
-# Web framework
-fastapi==0.135.1
-uvicorn[standard]==0.41.0
-python-multipart==0.0.9
+# Auto-generated from pip freeze — DO NOT edit manually
 
-# ML — PHẢI đúng version để load được .pkl model
+fastapi==0.135.1
+uvicorn==0.41.0
+python-multipart==0.0.22
 scikit-learn==1.8.0
 numpy==2.4.3
 pandas==2.3.3
-
-# NLP
 nltk==3.9.3
 langdetect==1.0.9
-
-# Web scraping (analyzers)
 beautifulsoup4==4.14.3
 requests==2.32.5
-aiofiles==23.2.1
-youtube-comment-downloader==0.1.68
-
-# Dashboard
+aiofiles==25.1.0
+youtube-comment-downloader==0.1.78
 streamlit==1.55.0
-
-# Utils
 httpx==0.28.1
