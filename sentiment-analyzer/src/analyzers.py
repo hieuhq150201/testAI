@@ -154,6 +154,7 @@ def analyze_youtube(url: str, predict_fn, max_comments: int = 500) -> dict:
     raw_comments = get_youtube_comments(video_id, max_comments)
 
     from src.bot_detector import analyze_comments_with_bot_detection
+    from src.context_analyzer import analyze_with_context, build_reply_threads
     result = analyze_comments_with_bot_detection(raw_comments, predict_fn, sample_size=min(max_comments, 500))
     result["source"] = "youtube"
     result["url"]    = url

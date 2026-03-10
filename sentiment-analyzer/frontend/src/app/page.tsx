@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { predictText, predictBatch, analyzeUrl, analyzeYoutube, PredictResult, SourceResult } from "@/lib/api";
 
-type Tab = "text" | "batch" | "url" | "youtube";
+type Tab = "text" | "batch" | "url" | "youtube" | "video";
 
 const TABS: { key: Tab; label: string; icon: string }[] = [
   { key: "text",    label: "Văn bản",  icon: "✦" },
@@ -13,6 +13,27 @@ const TABS: { key: Tab; label: string; icon: string }[] = [
 
 export default function Home() {
   const [tab, setTab] = useState<Tab>("text");
+  // ── Video ─────────────────────────────────────────────────────────
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [videoResult, setVideoResult] = useState<any>(null);
+  const [videoLoading, setVideoLoading] = useState(false);
+  const [videoError, setVideoError] = useState("");
+
+  const handleVideoAnalyze = async () => {
+    if (!videoFile) return;
+    setVideoLoading(true); setVideoError(""); setVideoResult(null);
+    try {
+      const formData = new FormData();
+      formData.append("file", videoFile);
+      const res = await fetch("http://localhost:8000/analyze/video", {
+        method: "POST", body: formData,
+      });
+      if (!res.ok) { const e = await res.json(); throw new Error(e.detail || "Lỗi"); }
+      setVideoResult(await res.json());
+    } catch(e: any) { setVideoError(e.message); }
+    finally { setVideoLoading(false); }
+  };
+
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg)" }}>
       {/* Header */}

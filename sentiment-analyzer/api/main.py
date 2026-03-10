@@ -2,6 +2,7 @@
 💻 FastAPI Sentiment Analyzer — v3.0
 Features: Cache (Redis/LRU), Observability, Multilingual (vi/en), Model Registry
 """
+import os
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -136,7 +137,8 @@ def activate_model(body: ActivateModel):
 
 # ── Sprint 7: Source Analyzers ─────────────────────────────────────
 from fastapi import UploadFile, File as FastAPIFile
-from src.analyzers import analyze_url, analyze_youtube, analyze_file_content, extract_video_id
+from src.analyzers import analyze_url, analyze_youtube, analyze_file_content
+from src.video_analyzer import analyze_video_bytes
 from src.multilingual import predict_multilingual
 
 def _predict_auto(text: str) -> dict:
@@ -196,3 +198,37 @@ async def analyze_file_endpoint(file: UploadFile = FastAPIFile(...)):
         raise HTTPException(422, str(e))
     except Exception as e:
         raise HTTPException(500, f"Lỗi phân tích file: {e}")
+
+
+# ── POST /analyze/video ────────────────────────────────────────────
+@app.post("/analyze/video")
+async def analyze_video_endpoint(
+    file: UploadFile = FastAPIFile(...),
+):
+    """
+    Upload video file → facial emotion analysis → sentiment.
+    Supported: mp4, avi, mov, mkv, webm (max 50MB)
+    """
+    MAX_SIZE = 50 * 1024 * 1024  # 50MB
+    ALLOWED = {'.mp4', '.avi', '.mov', '.mkv', '.webm'}
+
+    ext = os.path.splitext(file.filename or '')[1].lower()
+    if ext not in ALLOWED:
+        raise HTTPException(400, f"Định dạng không hỗ trợ: {ext}. Cho phép: {', '.join(ALLOWED)}")
+
+    content = await file.read()
+    if len(content) > MAX_SIZE:
+        raise HTTPException(413, f"File quá lớn ({len(content)//1024//1024}MB). Tối đa 50MB.")
+
+    try:
+        result = analyze_video_bytes(content, file.filename or 'upload.mp4')
+        log_prediction(
+            text=f"[VIDEO:{file.filename}]",
+            sentiment=result.get('sentiment','neutral'),
+            confidence=result.get('confidence', 0.5),
+            language='video',
+            method=result.get('method','facial_emotion_deepface')
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(500, f"Lỗi phân tích video: {str(e)}")
