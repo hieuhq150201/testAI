@@ -1,7 +1,7 @@
 version: "3.9"
 
 services:
-  api:
+  sentiment-api:
     build:
       context: .
       dockerfile: Dockerfile
@@ -9,31 +9,43 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./data:/app/data
-      - ./models:/app/models
+      - ./data:/app/data      # persist SQLite DB
+      - ./models:/app/models  # persist models
     environment:
       - PYTHONUNBUFFERED=1
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
-    restart: unless-stopped
+      start_period: 15s
 
-  dashboard:
+  sentiment-dashboard:
     build:
       context: .
       dockerfile: Dockerfile.dashboard
     container_name: sentiment-dashboard
     ports:
       - "8501:8501"
-    volumes:
-      - ./data:/app/data
-      - ./models:/app/models
     depends_on:
-      - api
+      sentiment-api:
+        condition: service_healthy
+    environment:
+      - API_URL=http://sentiment-api:8000
     restart: unless-stopped
 
-volumes:
-  data:
-  models:
+  sentiment-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: sentiment-frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      sentiment-api:
+        condition: service_healthy
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    restart: unless-stopped
+

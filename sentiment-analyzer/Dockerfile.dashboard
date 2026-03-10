@@ -11,6 +11,12 @@ RUN python -c "import nltk; nltk.download('stopwords', quiet=True)"
 
 COPY . .
 
-EXPOSE 8501
+# Smoke test
+RUN python -c "
+import streamlit, sklearn, pickle
+with open('models/best_model_v2.pkl','rb') as f: pickle.load(f)
+print('✅ Dashboard smoke test passed')
+"
 
+EXPOSE 8501
 CMD ["streamlit", "run", "dashboard/app.py", "--server.port=8501", "--server.address=0.0.0.0"]
