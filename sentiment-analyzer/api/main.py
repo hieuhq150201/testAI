@@ -34,7 +34,7 @@ def root():
 
 @app.get("/health")
 def health():
-    return {"status": "healthy", "model": "LR+TF-IDF", "accuracy": 0.8937}
+    return {"status": "healthy", "model": "LR+TF-IDF", "accuracy": 0.8937, "model_loaded": model is not None}
 
 @app.post("/predict")
 def predict(input: TextInput):
@@ -51,6 +51,8 @@ def predict(input: TextInput):
 
 @app.post("/predict/batch")
 def predict_batch(input: BatchInput):
+    if not input.texts:
+        raise HTTPException(400, "Texts list cannot be empty")
     if len(input.texts) > 100:
         raise HTTPException(400, "Max 100 texts")
     start = time.time()

@@ -1,5 +1,49 @@
 {
-  "best_C": 5.0,
-  "accuracy": 0.8937,
-  "model": "LR+TF-IDF+sublinear"
+  "timestamp": "20260310_073818",
+  "accuracy": 0.8928,
+  "classification_report": {
+    "Negative": {
+      "precision": 0.8890561851176797,
+      "recall": 0.89752,
+      "f1-score": 0.8932680441100362,
+      "support": 12500.0
+    },
+    "Positive": {
+      "precision": 0.8965350133268718,
+      "recall": 0.888,
+      "f1-score": 0.8922470961778064,
+      "support": 12500.0
+    },
+    "accuracy": 0.89276,
+    "macro avg": {
+      "precision": 0.8927955992222758,
+      "recall": 0.89276,
+      "f1-score": 0.8927575701439213,
+      "support": 25000.0
+    },
+    "weighted avg": {
+      "precision": 0.8927955992222758,
+      "recall": 0.89276,
+      "f1-score": 0.8927575701439213,
+      "support": 25000.0
+    }
+  },
+  "confusion_matrix": [
+    [
+      11219,
+      1281
+    ],
+    [
+      1400,
+      11100
+    ]
+  ],
+  "model_path": "/root/.openclaw/workspace/sentiment-analyzer/src/../models/model_20260310_073818.pkl",
+  "train_size": 25000,
+  "test_size": 25000,
+  "empty_texts": {
+    "train": 0,
+    "test": 0
+  },
+  "status": "PASS"
 }
