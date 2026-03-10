@@ -1,0 +1,16 @@
+.git
+.gitignore
+__pycache__
+*.pyc
+*.pyo
+.pytest_cache
+.coverage
+coverage.xml
+htmlcov/
+.env
+.env.*
+*.log
+frontend/
+node_modules/
+data/*.db
+README.md
