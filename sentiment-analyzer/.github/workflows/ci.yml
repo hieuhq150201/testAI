@@ -1,0 +1,74 @@
+name: CI — Sentiment Analyzer
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sentiment-analyzer
+
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: 📦 Install dependencies
+        run: pip install scikit-learn nltk pandas fastapi httpx pytest pytest-cov uvicorn python-multipart
+
+      - name: 📚 Download NLTK data
+        run: python -c "import nltk; nltk.download('stopwords')"
+
+      - name: 🤖 Train model (if not cached)
+        run: |
+          if [ ! -f models/best_model_v2.pkl ]; then
+            echo "No model found, training..."
+            pip install datasets
+            python src/train.py
+          else
+            echo "Model exists, skipping training"
+          fi
+
+      - name: 🧪 Run unit tests
+        run: python -m pytest tests/test_unit.py -v --tb=short
+
+      - name: 🔍 Run integration tests
+        run: python -m pytest tests/test_integration.py -v --tb=short
+
+      - name: 📊 Full test suite with coverage
+        run: |
+          python -m pytest tests/ --cov=api --cov=src \
+            --cov-report=term-missing \
+            --cov-report=xml \
+            -v
+
+      - name: 📈 Upload coverage report
+        uses: codecov/codecov-action@v4
+        if: always()
+        with:
+          file: sentiment-analyzer/coverage.xml
+          fail_ci_if_error: false
+
+  lint:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sentiment-analyzer
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install flake8
+      - name: 🔎 Lint
+        run: flake8 api/ src/ --max-line-length=120 --ignore=E501,W503 || true
