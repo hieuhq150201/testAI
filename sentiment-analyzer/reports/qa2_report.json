@@ -1,0 +1,7 @@
+{
+  "avg_latency_ms": 0.16,
+  "throughput_per_sec": 10703,
+  "sample_accuracy": 0.894,
+  "model_size_mb": 2.3,
+  "status": "PASS"
+}

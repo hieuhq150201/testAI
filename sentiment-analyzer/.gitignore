@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.venv/
+venv/
+.env
+
+# Data (large files)
+data/train.csv
+data/test.csv
+data/*.parquet
+
+# Model binaries (optional: use Git LFS for these)
+# models/*.pkl
+
+# Cache
+.cache/
+*.log
+.DS_Store
+
+# HuggingFace cache
+~/.cache/huggingface/

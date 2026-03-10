@@ -1,0 +1,5 @@
+{
+  "best_C": 5.0,
+  "accuracy": 0.8937,
+  "model": "LR+TF-IDF+sublinear"
+}

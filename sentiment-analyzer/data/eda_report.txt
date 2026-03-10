@@ -1,0 +1,12 @@
+=== EDA REPORT - IMDB Dataset ===
+
+Train size: 25000
+Test size: 25000
+
+Class distribution (train):
+label
+0    12500
+1    12500
+
+Avg text length: 1325 chars
+Min/Max: 52 / 13704
