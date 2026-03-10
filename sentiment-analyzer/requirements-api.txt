@@ -1,0 +1,23 @@
+# Auto-generated: pip freeze | grep needed packages
+# DO NOT edit manually — run: python3 scripts/gen_requirements.py
+
+fastapi==0.135.1
+uvicorn==0.41.0
+python-multipart==0.0.22
+scikit-learn==1.8.0
+numpy==2.4.3
+pandas==2.3.3
+nltk==3.9.3
+langdetect==1.0.9
+beautifulsoup4==4.14.3
+requests==2.32.5
+aiofiles==25.1.0
+youtube-comment-downloader==0.1.78
+streamlit==1.55.0
+httpx==0.28.1
+
+# Sprint 9 — video facial emotion
+opencv-python-headless==4.13.0.92
+deepface==0.0.99
+tensorflow==2.20.0
+tf_keras==2.20.1
