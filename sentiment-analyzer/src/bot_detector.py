@@ -168,6 +168,19 @@ def analyze_comments_with_bot_detection(
     # Spam breakdown
     spam_reasons = Counter(c["spam_reason"] for c in spam_comments if c["spam_reason"])
 
+    # Chi tiết spam: ai spam, nội dung gì, lý do gì
+    spam_details = [
+        {
+            "author":  c.get("author", "Unknown"),
+            "text":    c.get("text", "")[:200],
+            "reason":  c.get("spam_reason", ""),
+            "votes":   c.get("votes", 0),
+        }
+        for c in spam_comments
+    ]
+    # Sort: duplicate spam trước, rồi theo lý do
+    spam_details.sort(key=lambda x: (x["reason"] != "lặp lại", x["reason"]))
+
     return {
         # Overview
         "total_fetched":     total_fetched,
@@ -175,6 +188,7 @@ def analyze_comments_with_bot_detection(
         "spam_filtered":     len(spam_comments),
         "spam_rate":         round(len(spam_comments) / total_fetched, 4) if total_fetched else 0,
         "spam_reasons":      dict(spam_reasons.most_common()),
+        "spam_details":      spam_details,
         "overall_sentiment": "positive" if pos_rate >= 0.5 else "negative",
         "positive_count":    len(pos),
         "negative_count":    len(neg),

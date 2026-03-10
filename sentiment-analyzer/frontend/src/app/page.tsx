@@ -323,7 +323,7 @@ function YoutubeTab() {
         <div className="animate-in" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <SourceResultCard result={result} />
           {result.spam_filtered > 0 && (
-            <SpamBadge filtered={result.spam_filtered} rate={result.spam_rate} reasons={result.spam_reasons} />
+            <SpamBadge filtered={result.spam_filtered} rate={result.spam_rate} reasons={result.spam_reasons} details={result.spam_details} />
           )}
           {(result.top_positive_users?.length > 0 || result.top_negative_users?.length > 0) && (
             <TopCommentersCard pos={result.top_positive_users ?? []} neg={result.top_negative_users ?? []} />
@@ -378,22 +378,80 @@ function SourceResultCard({ result }: { result: any }) {
 }
 
 /* ── SpamBadge ────────────────────────────────────────────────── */
-function SpamBadge({ filtered, rate, reasons }: { filtered: number; rate: number; reasons: Record<string,number> }) {
+const REASON_LABEL: Record<string, string> = {
+  "lặp ký tự":     "🔤 Lặp ký tự",
+  "emoji spam":    "😂 Emoji spam",
+  "all caps spam": "🔊 All caps",
+  "quảng cáo/link":"🔗 Quảng cáo/link",
+  "username bot":  "🤖 Username bot",
+};
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function SpamBadge({ filtered, rate, reasons, details }: { filtered: number; rate: number; reasons: Record<string,number>; details?: any[] }) {
+  const [open, setOpen] = useState(false);
   return (
-    <Card style={{ padding: "12px 16px", background: "#fffbeb", borderColor: "#fde68a" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-        <span style={{ fontSize: 15 }}>🤖</span>
-        <span style={{ fontWeight: 600, fontSize: 13.5, color: "#92400e" }}>
-          Đã lọc {filtered.toLocaleString()} spam ({(rate*100).toFixed(1)}%)
-        </span>
+    <Card style={{ padding: "12px 16px", background: "#fffbeb", border: "1px solid #fde68a" }}>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 15 }}>🤖</span>
+          <span style={{ fontWeight: 600, fontSize: 13.5, color: "#92400e" }}>
+            Đã lọc {filtered.toLocaleString()} spam ({(rate*100).toFixed(1)}%)
+          </span>
+        </div>
+        {details && details.length > 0 && (
+          <button onClick={() => setOpen(o => !o)} style={{
+            fontSize: 12, fontWeight: 600, color: "#92400e",
+            background: "#fef3c7", border: "1px solid #fde68a",
+            borderRadius: 6, padding: "3px 10px", cursor: "pointer",
+          }}>
+            {open ? "Ẩn ▲" : "Xem chi tiết ▼"}
+          </button>
+        )}
       </div>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+
+      {/* Reason pills */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: open ? 14 : 0 }}>
         {Object.entries(reasons).map(([k,v]) => (
-          <span key={k} style={{ fontSize: 12, background: "#fef3c7", color: "#78350f", padding: "2px 8px", borderRadius: 99, border: "1px solid #fde68a" }}>
-            {k}: {v as number}
+          <span key={k} style={{ fontSize: 12, background: "#fef3c7", color: "#78350f", padding: "3px 10px", borderRadius: 99, border: "1px solid #fde68a", fontWeight: 500 }}>
+            {REASON_LABEL[k] ?? k}: {v as number}
           </span>
         ))}
       </div>
+
+      {/* Detail table */}
+      {open && details && details.length > 0 && (
+        <div style={{ borderTop: "1px solid #fde68a", paddingTop: 12 }}>
+          <div style={{ fontSize: 12, color: "#78350f", marginBottom: 8, fontWeight: 600 }}>
+            Chi tiết từng bình luận spam:
+          </div>
+          <div style={{ maxHeight: 320, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
+            {details.map((d: any, i: number) => (
+              <div key={i} style={{
+                display: "grid", gridTemplateColumns: "auto 1fr auto",
+                gap: 10, alignItems: "start",
+                padding: "8px 10px", borderRadius: 8,
+                background: "#fef9ec", border: "1px solid #fde68a",
+                fontSize: 12.5,
+              }}>
+                <span style={{
+                  background: "#fde68a", color: "#78350f",
+                  padding: "2px 7px", borderRadius: 99, fontSize: 11, fontWeight: 600,
+                  whiteSpace: "nowrap",
+                }}>
+                  {REASON_LABEL[d.reason] ?? d.reason}
+                </span>
+                <div>
+                  <div style={{ fontWeight: 500, color: "#92400e", marginBottom: 2 }}>@{d.author}</div>
+                  <div style={{ color: "#78350f", lineHeight: 1.5 }}>{d.text}</div>
+                </div>
+                {d.votes > 0 && (
+                  <span style={{ color: "#a16207", fontSize: 11, whiteSpace: "nowrap" }}>👍 {d.votes.toLocaleString()}</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </Card>
   );
 }
