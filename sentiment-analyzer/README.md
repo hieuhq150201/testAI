@@ -1,20 +1,24 @@
 # 🎭 Sentiment Analyzer
 
-Hệ thống phân tích cảm xúc review sản phẩm/phim sử dụng NLP pipeline — từ training đến production-ready API.
+Hệ thống phân tích cảm xúc văn bản đa ngôn ngữ (Tiếng Việt + Tiếng Anh), được xây dựng theo mô hình sprint agile với đầy đủ pipeline từ training đến production.
 
 ---
 
-## 📊 Kết quả
+## 🚀 Tính năng
 
-| Chỉ số | Giá trị |
-|--------|---------|
-| Model | Logistic Regression + TF-IDF |
-| Accuracy | **89.37%** (IMDB 25k test) |
-| Latency (fresh) | ~0.16ms / request |
-| Latency (cached) | ~0.01ms / request |
-| Throughput | 10,703 predictions/sec |
-| Model size | 2.3 MB |
-| Test coverage | **43/43 tests pass** ✅ |
+| Tính năng | Mô tả |
+|-----------|-------|
+| 🔍 **Phân tích text** | Nhập text thủ công, hỗ trợ VI + EN |
+| 🔗 **Phân tích URL** | Paste link bất kỳ → tự crawl → phân tích |
+| 🎬 **Phân tích YouTube** | Lấy comments → sentiment + top pos/neg |
+| 📄 **Phân tích File** | Upload CSV/TXT → phân tích từng dòng |
+| 📦 **Batch predict** | Gửi nhiều text cùng lúc |
+| 📊 **Dashboard** | Streamlit UI 5 tabs với charts |
+| ⚡ **Cache** | LRU in-memory, tự động fallback Redis |
+| 🗄️ **Observability** | SQLite log mọi prediction, `/stats` endpoint |
+| 🔄 **Model Registry** | Hot-swap model không cần restart |
+| 🐳 **Docker** | docker-compose ready |
+| 🤖 **CI/CD** | GitHub Actions tự chạy test khi push |
 
 ---
 
@@ -22,193 +26,249 @@ Hệ thống phân tích cảm xúc review sản phẩm/phim sử dụng NLP pip
 
 ```
 sentiment-analyzer/
-├── .github/workflows/
-│   └── ci.yml              # CI/CD — auto test khi push
-├── data/
-│   ├── train.csv            # IMDB 25k train (gitignored)
-│   ├── test.csv             # IMDB 25k test (gitignored)
-│   ├── eda_report.txt       # Báo cáo EDA
-│   └── predictions.db       # SQLite — lịch sử prediction
-├── models/
-│   └── best_model_v2.pkl    # Model tốt nhất (LR, C=5.0)
-├── src/
-│   ├── train.py             # Training pipeline (robust)
-│   ├── cache.py             # LRU cache layer
-│   └── observability.py     # SQLite logger + stats
 ├── api/
-│   └── main.py              # FastAPI REST API v2
+│   └── main.py              # FastAPI app v3.0 — 10+ endpoints
+├── src/
+│   ├── train.py             # Training pipeline (accuracy gate ≥85%)
+│   ├── multilingual.py      # Router VI/EN — auto detect ngôn ngữ
+│   ├── analyzers.py         # URL, YouTube, File analyzers
+│   ├── cache.py             # LRU cache (Redis fallback)
+│   ├── observability.py     # SQLite prediction logger
+│   └── model_registry.py   # Model versioning + hot-swap
 ├── dashboard/
-│   └── app.py               # Streamlit UI
+│   └── app.py               # Streamlit Dashboard v4
+├── models/
+│   ├── best_model_v2.pkl    # EN model (TF-IDF + LR, 89.37%)
+│   └── vi_model.pkl         # VI model (TF-IDF + LR, 92.9%)
+├── data/
+│   ├── train.csv / test.csv # IMDB 25k/25k
+│   ├── vi_train.csv         # VI dataset 864 samples
+│   └── vi_test.csv          # VI test 216 samples
 ├── tests/
-│   ├── conftest.py          # Pytest fixtures
-│   ├── test_unit.py         # Unit tests (20 tests)
-│   └── test_integration.py  # Integration tests (23 tests)
-└── reports/
-    ├── trainer_report.json
-    ├── qa1_report.json
-    └── qa2_report.json
+│   ├── test_unit.py         # 20 unit tests
+│   ├── test_integration.py  # 40 integration tests
+│   └── load_test.py         # Load test 600 users
+├── .github/workflows/
+│   └── ci.yml               # GitHub Actions CI
+├── Dockerfile
+├── Dockerfile.dashboard
+└── docker-compose.yml
 ```
 
 ---
 
-## 🚀 Cài đặt & Chạy
+## 📦 Cài đặt
 
-### Yêu cầu
+### Chạy thủ công
 
 ```bash
-pip install scikit-learn nltk pandas fastapi uvicorn streamlit httpx pytest python-multipart
+# Clone
+git clone https://github.com/hieuhq150201/testAI.git
+cd testAI/sentiment-analyzer
+
+# Cài dependencies
+pip install fastapi uvicorn streamlit scikit-learn nltk datasets \
+            pandas numpy pytest httpx beautifulsoup4 requests \
+            youtube-comment-downloader python-multipart aiofiles langdetect
+
+# Train model
+python3 src/train.py
+
+# Chạy API
+uvicorn api.main:app --port 8000 --workers 4
+
+# Chạy Dashboard
+streamlit run dashboard/app.py --server.port 8501
 ```
 
-### Train model
+### Chạy Docker
 
 ```bash
-# Cần download data trước (lần đầu)
-pip install datasets
-python src/train.py
-```
-
-### Chạy API
-
-```bash
-cd api
-uvicorn main:app --reload --port 8000
-```
-
-### Chạy Dashboard
-
-```bash
-cd dashboard
-streamlit run app.py
+docker-compose up --build
+# API:       http://localhost:8000
+# Dashboard: http://localhost:8501
 ```
 
 ---
 
-## 📡 API Endpoints
+## 🔌 API Endpoints
 
-| Method | Endpoint | Mô tả |
-|--------|----------|-------|
-| GET | `/` | Thông tin service |
-| GET | `/health` | Health check + cache stats |
-| POST | `/predict` | Phân tích 1 đoạn text |
-| POST | `/predict/batch` | Phân tích nhiều text (tối đa 100) |
-| GET | `/stats` | Thống kê prediction history |
-
-### Ví dụ
+### Cơ bản
 
 ```bash
-# Single prediction
-curl -X POST http://localhost:8000/predict \
-  -H "Content-Type: application/json" \
-  -d '{"text": "This movie was absolutely amazing!"}'
+# Health check
+GET /health
 
-# Response
+# Phân tích 1 text
+POST /predict
+{"text": "Phim này hay quá!"}
+
+# Phân tích nhiều text
+POST /predict/batch
+{"texts": ["Hay lắm!", "Dở quá!"]}
+
+# Đa ngôn ngữ (auto-detect VI/EN)
+POST /predict/multilingual
+{"text": "Phim này hay quá, tôi rất thích!"}
+```
+
+### Phân tích từ nguồn
+
+```bash
+# Crawl URL bất kỳ
+POST /analyze/url
+{"url": "https://example.com/review"}
+
+# YouTube comments
+POST /analyze/youtube
+{"url": "https://youtube.com/watch?v=...", "max_items": 100}
+
+# Upload file CSV/TXT
+POST /analyze/file
+[multipart form: file=reviews.csv]
+```
+
+### Quản lý
+
+```bash
+# Stats & observability
+GET /stats
+
+# Danh sách models
+GET /models
+
+# Đổi active model (hot-swap)
+POST /models/{version}/activate
+```
+
+### Response mẫu
+
+```json
 {
+  "text": "Phim này hay quá!",
   "sentiment": "positive",
-  "confidence": 0.9823,
-  "positive_prob": 0.9823,
-  "negative_prob": 0.0177,
+  "confidence": 0.94,
+  "language": "vi",
+  "method": "tfidf_vi_trained_v2",
   "cached": false,
-  "latency_ms": 0.18
+  "latency_ms": 3.2
 }
 ```
 
+---
+
+## 🤖 Models
+
+### English Model
+- **Algorithm:** Logistic Regression + TF-IDF (bigrams, sublinear_tf)
+- **Dataset:** IMDB 25,000 reviews
+- **Accuracy:** 89.37% (C=5.0)
+- **Latency:** ~4ms
+
+### Vietnamese Model
+- **Algorithm:** Logistic Regression + TF-IDF (word 1-3gram)
+- **Dataset:** 1,080 samples tự xây dựng — 10 domains
+- **Domains:** Music, Shopping, Food, Film, Tech, Travel, Health, Education, Sport, Social
+- **Accuracy:** 92.9% (real-world validation)
+- **Đặc điểm:** Nhận diện được "cảm ơn", khen ngợi kiểu Việt
+
+---
+
+## 🧪 Tests
+
 ```bash
-# Batch prediction
-curl -X POST http://localhost:8000/predict/batch \
-  -H "Content-Type: application/json" \
-  -d '{"texts": ["Great film!", "Terrible movie.", "It was okay."]}'
+# Chạy toàn bộ tests
+pytest tests/ -v
+
+# Kết quả: 60/60 pass ✅
+
+# Load test 600 users
+python3 tests/load_test.py
 ```
+
+### Kết quả Load Test (600 concurrent users)
+
+| Users | RPS | Avg Latency | p95 | Lỗi |
+|-------|-----|-------------|-----|-----|
+| 10 | 96 | 4ms | 8ms | 0% |
+| 100 | 935 | 7ms | 11ms | 0% |
+| 400 | 1,483 | 132ms | 163ms | 0% |
+| **600** | **1,529** | **227ms** | **284ms** | **0%** |
 
 ---
 
-## 🔄 CI/CD
-
-GitHub Actions tự động chạy mỗi khi push lên `main` hoặc tạo Pull Request:
-
-```
-push → test job (43 tests + coverage) → lint job
-                ↓
-         ✅ Pass → merge allowed
-         ❌ Fail → block merge
-```
-
-Xem kết quả tại: **Actions tab** trên GitHub
-
----
-
-## 📦 Tech Stack
-
-| Layer | Công nghệ |
-|-------|-----------|
-| ML Model | scikit-learn — Logistic Regression |
-| Feature Extraction | TF-IDF (50k features, bigrams, sublinear_tf) |
-| Preprocessing | NLTK — stopword removal, HTML strip |
-| API | FastAPI + Pydantic |
-| Dashboard | Streamlit |
-| Cache | LRU in-memory (thread-safe, 1000 entries) |
-| Observability | SQLite — prediction logging + stats |
-| Testing | pytest + pytest-cov |
-| CI/CD | GitHub Actions |
-
----
-
-## 🗺️ Lịch sử Sprint
+## 📅 Sprint History
 
 ### Sprint 1 — Foundation
-- ✅ Download & EDA dataset IMDB (25k train, 25k test)
-- ✅ Preprocessing pipeline (HTML strip, lowercase, stopwords)
-- ✅ Train Logistic Regression + SVM, chọn LR (acc=88.71%)
-- ✅ FastAPI REST API cơ bản
-- ✅ Streamlit dashboard v1
+- IMDB dataset pipeline, Logistic Regression model
+- FastAPI: `/predict`, `/predict/batch`, `/health`
+- Streamlit Dashboard v1
 
-### Sprint 2 — Quality & Reliability
-- ✅ Robust training pipeline với validation, logging, accuracy gate
-- ✅ Hyperparameter tuning (C=5.0, sublinear_tf) → acc tăng lên **89.37%**
-- ✅ 20 unit tests — edge cases, confidence sanity, preprocessing
-- ✅ 18 integration tests — API endpoints, error handling, performance
-- ✅ **Bug fix:** `/health` thiếu field `model_loaded`
-- ✅ **Bug fix:** `/predict/batch` crash khi nhận empty list (thay vì trả 400)
+### Sprint 2 — Robustness
+- Training pipeline với accuracy gate (≥85%)
+- Versioned model saves (`model_YYYYMMDD_HHMMSS.pkl`)
+- 38 tests (20 unit + 18 integration) — fix 2 bugs
 
 ### Sprint 3 — Production Ready
-- ✅ GitHub Actions CI/CD — tự động chạy 43 tests khi push
-- ✅ LRU Cache layer — cache hit ~0.01ms (vs fresh ~0.16ms)
-- ✅ Observability: SQLite logger, `/stats` endpoint, track uncertain predictions
-- ✅ +5 cache tests, +3 stats tests
-- ✅ **Bug fix:** SQLite `DEFAULT datetime()` syntax lỗi trên Python 3.13
+- CI/CD với GitHub Actions
+- LRU Cache (1,000 entries, thread-safe)
+- SQLite observability, `/stats` endpoint
+- API v2.0: thêm `cached`, `latency_ms`, `cache_hits`
+
+### Sprint 4 — Docker & Dashboard
+- Dockerfile + docker-compose
+- Dashboard v3 với charts từ `/stats`
+
+### Sprint 5 — Multilingual
+- Vietnamese support (lexicon-based)
+- `/predict/multilingual` — auto-detect VI/EN
+- `langdetect` integration
+
+### Sprint 6 — Scale & Registry
+- Redis cache (tự fallback về LRU nếu không có Redis)
+- Model Registry: versioning + hot-swap không restart
+- API v3.0
+
+### Sprint 7 — Source Analyzers
+- Crawl URL bất kỳ (báo, blog, review site)
+- YouTube comments analyzer (không cần API key)
+- File upload: CSV/TXT (max 5MB, 500 rows)
+- Dashboard v4: 5 tabs
+
+### Sprint 8 — Vietnamese Model v2
+- Tự build dataset 1,080 samples — 10 domains
+- Real-world accuracy: **92.9%** (vượt target 90%)
+- Fix vấn đề "cảm ơn" bị classify nhầm là negative
+- Load test: 600 users, 1,529 RPS, 0% error
 
 ---
 
-## 🐛 Issues đã xử lý
+## 🐛 Bugs đã fix
 
-| # | Sprint | Issue | Fix |
-|---|--------|-------|-----|
-| 1 | S1 | `pip` không có sẵn trong Docker | Bootstrap qua `get-pip.py` |
-| 2 | S1 | `data/` directory chưa tồn tại khi save CSV | `os.makedirs(..., exist_ok=True)` |
-| 3 | S1 | Git repo chưa có remote + user config | Setup `git config` + PAT authentication |
-| 4 | S2 | `/health` thiếu field `model_loaded` | Thêm field vào response |
-| 5 | S2 | `/predict/batch` với `[]` → crash thay vì 400 | Validate trước khi gọi model |
-| 6 | S3 | SQLite `DEFAULT (datetime("now"))` lỗi Python 3.13 | Bỏ DEFAULT, thêm vào INSERT |
-| 7 | S3 | Git push lần đầu thiếu `--set-upstream` | `git push --set-upstream origin main` |
-
----
-
-## 🔮 Roadmap
-
-- [ ] **Sprint 4:** Docker + docker-compose (API + Dashboard)
-- [ ] **Sprint 4:** Dashboard charts từ `/stats` (volume, sentiment trend)
-- [ ] **Sprint 5:** Vietnamese support — PhoBERT / multilingual model
-- [ ] **Sprint 5:** Language detection tự động → route đúng model
-- [ ] **Sprint 6:** Persistent Redis cache (thay LRU in-memory)
-- [ ] **Sprint 6:** Model versioning + A/B testing
+| # | Vấn đề | Sprint | Bài học |
+|---|--------|--------|---------|
+| 1 | `pip` không có trong Docker | 1 | Bootstrap pip trước |
+| 2 | Directory chưa tồn tại khi save file | 1 | `exist_ok=True` everywhere |
+| 3 | Git auth qua HTTPS | 1 | Dùng PAT thay password |
+| 4 | `/health` thiếu field `model_loaded` | 2 | Test-driven catch được ngay |
+| 5 | `/predict/batch` crash trên list rỗng | 2 | Validate input trước khi touch model |
+| 6 | SQLite syntax lỗi trên Python 3.13 | 3 | Test trên cùng Python version |
+| 7 | Git upstream chưa set | 3 | `--set-upstream` khi push lần đầu |
+| 8 | "Cảm ơn" bị classify là negative | 8 | Train trên data đúng domain |
 
 ---
 
 ## 👥 Team
 
-| Role | Nhiệm vụ |
-|------|----------|
-| 🎓 Agent-T1 (Trainer) | Training pipeline, hyperparameter tuning |
-| 💻 Agent-D1 (Backend Dev) | FastAPI, CI/CD, bug fixes |
-| 💻 Agent-D2 (Frontend Dev) | Streamlit dashboard, cache layer |
-| 🧪 Agent-QA1 (Tester) | Unit tests |
-| 🔍 Agent-QA2 (QA Engineer) | Integration tests, observability, performance |
+Dự án được xây dựng theo mô hình agile với team ảo:
+
+- **T1** — Trainer: phụ trách data pipeline và model training
+- **D1, D2** — Developer: phụ trách API và business logic
+- **QA1, QA2** — QA Engineer: phụ trách test và quality gate
+- **PM** — Project Manager: điều phối sprint và review
+
+---
+
+## 📄 License
+
+MIT
