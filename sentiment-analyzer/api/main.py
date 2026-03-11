@@ -3,7 +3,7 @@
 Features: Cache (Redis/LRU), Observability, Multilingual (vi/en), Model Registry
 """
 import os
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
@@ -17,9 +17,17 @@ from src.observability import log_prediction, get_stats
 from src.multilingual import predict_multilingual
 from src.model_registry import registry
 
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+
 app = FastAPI(title="Sentiment Analyzer API", version="3.0.0",
               description="Phân tích cảm xúc đa ngôn ngữ (vi/en) với cache + observability")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+
+limiter = Limiter(key_func=get_remote_address, default_limits=["60/minute"])
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 stop_words = set(stopwords.words('english'))
 
@@ -66,7 +74,8 @@ def health():
     }
 
 @app.post("/predict")
-def predict(input: TextInput):
+@limiter.limit("60/minute")
+def predict(request: Request, input: TextInput):
     if not input.text.strip():
         raise HTTPException(400, "Text cannot be empty")
     t0 = time.time()
@@ -80,7 +89,8 @@ def predict(input: TextInput):
     return {**result, "cached": False, "latency_ms": latency}
 
 @app.post("/predict/multilingual")
-def predict_multi(input: TextInput):
+@limiter.limit("60/minute")
+def predict_multi(request: Request, input: TextInput):
     """🌏 Auto-detect ngôn ngữ → route đúng model"""
     if not input.text.strip():
         raise HTTPException(400, "Text cannot be empty")
@@ -95,7 +105,8 @@ def predict_multi(input: TextInput):
     return {**result, "cached": False, "latency_ms": latency}
 
 @app.post("/predict/batch")
-def predict_batch(input: BatchInput):
+@limiter.limit("60/minute")
+def predict_batch(request: Request, input: BatchInput):
     if not input.texts:
         raise HTTPException(400, "Texts list cannot be empty")
     if len(input.texts) > 100:
@@ -170,7 +181,8 @@ class URLInput(BaseModel):
     max_items: Optional[int] = 500
 
 @app.post("/analyze/url")
-def analyze_url_endpoint(input: URLInput):
+@limiter.limit("60/minute")
+def analyze_url_endpoint(request: Request, input: URLInput):
     """🔗 Crawl URL → extract paragraphs → phân tích sentiment"""
     if not input.url.strip():
         raise HTTPException(400, "URL cannot be empty")
@@ -185,7 +197,8 @@ def analyze_url_endpoint(input: URLInput):
         raise HTTPException(500, f"Lỗi phân tích URL: {e}")
 
 @app.post("/analyze/youtube")
-def analyze_youtube_endpoint(input: URLInput):
+@limiter.limit("60/minute")
+def analyze_youtube_endpoint(request: Request, input: URLInput):
     """🎬 YouTube URL → lấy comments → phân tích sentiment"""
     if not input.url.strip():
         raise HTTPException(400, "URL cannot be empty")
@@ -201,7 +214,8 @@ def analyze_youtube_endpoint(input: URLInput):
         raise HTTPException(500, f"Lỗi phân tích YouTube: {e}")
 
 @app.post("/analyze/file")
-async def analyze_file_endpoint(file: UploadFile = FastAPIFile(...)):
+@limiter.limit("20/minute")
+async def analyze_file_endpoint(request: Request, file: UploadFile = FastAPIFile(...)):
     """📄 Upload file CSV/TXT → phân tích từng dòng"""
     allowed = {"csv", "txt"}
     ext = file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else ""
@@ -222,7 +236,8 @@ async def analyze_file_endpoint(file: UploadFile = FastAPIFile(...)):
 
 # ── POST /analyze/video ────────────────────────────────────────────
 @app.post("/analyze/video")
-async def analyze_video_endpoint(
+@limiter.limit("20/minute")
+async def analyze_video_endpoint(request: Request, 
     file: UploadFile = FastAPIFile(...),
 ):
     """

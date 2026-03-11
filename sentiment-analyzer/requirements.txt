@@ -21,3 +21,4 @@ opencv-python-headless==4.13.0.92
 deepface==0.0.99
 tensorflow==2.20.0
 tf_keras==2.20.1
+slowapi==0.1.9
