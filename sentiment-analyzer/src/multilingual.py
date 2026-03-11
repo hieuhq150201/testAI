@@ -54,6 +54,38 @@ VI_NEGATIVE_WORDS = {
     'không đáng','không xứng','phí thời gian','thất vọng hoàn toàn'
 }
 
+
+# ── Emoji Sentiment ───────────────────────────────────────────────
+EMOJI_POSITIVE = {'😍','❤️','🔥','✨','😊','🥰','💯','👍','🎉','💪','🙌','⭐','🌟','💖','😄'}
+EMOJI_NEGATIVE = {'💀','😭','😤','🤮','😡','👎','💔','😢','🤬','😠','🙄','😒','😞','💩','🤢'}
+
+def emoji_score(text: str) -> float:
+    """Return +1.0 (very positive) to -1.0 (very negative), 0 if no emoji"""
+    pos = sum(1 for c in text if c in EMOJI_POSITIVE)
+    neg = sum(1 for c in text if c in EMOJI_NEGATIVE)
+    total = pos + neg
+    if total == 0:
+        return 0.0
+    return round((pos - neg) / total, 3)
+
+def _apply_emoji_blend(result: dict, text: str) -> dict:
+    """Blend emoji score (20%) with model result (80%)"""
+    e = emoji_score(text)
+    if e == 0.0:
+        return result
+    adj_pos = result["positive_prob"] * 0.8 + (0.5 + e * 0.5) * 0.2
+    adj_neg = round(1.0 - adj_pos, 4)
+    adj_pos = round(adj_pos, 4)
+    result = dict(result)
+    result.update({
+        "positive_prob": adj_pos,
+        "negative_prob": adj_neg,
+        "sentiment": "positive" if adj_pos >= 0.5 else "negative",
+        "confidence": round(max(adj_pos, adj_neg), 4),
+        "emoji_score": e,
+    })
+    return result
+
 def preprocess_vi(text: str) -> str:
     text = text.lower()
     text = re.sub(r'<[^>]+>', ' ', text)
@@ -192,13 +224,13 @@ def predict_multilingual(text: str, en_model) -> dict:
         result = predict_vi_trained(text)
         result["language"] = "vi"
         result["lang_confidence"] = lang_conf
-        return result
+        return _apply_emoji_blend(result, text)
 
     if lang == 'en' and lang_conf >= LANG_CONF_THRESHOLD:
         result = _predict_en(text, en_model)
         result["language"] = "en"
         result["lang_confidence"] = lang_conf
-        return result
+        return _apply_emoji_blend(result, text)
 
     # Ambiguous (mixed VI/EN, code-switching, short text) → blend
     en_res = _predict_en(text, en_model)
@@ -214,4 +246,4 @@ def predict_multilingual(text: str, en_model) -> dict:
     blended = _blend_results(en_res, vi_res, effective_lang_conf)
     blended["language"] = lang if lang != 'unknown' else 'mixed'
     blended["lang_confidence"] = lang_conf
-    return blended
+    return _apply_emoji_blend(blended, text)
