@@ -120,6 +120,27 @@ def predict_batch(input: BatchInput):
 def stats():
     return {"cache": prediction_cache.stats, "predictions": get_stats()}
 
+
+# ── User Feedback ─────────────────────────────────────────────────
+class FeedbackInput(BaseModel):
+    text: str
+    predicted: str
+    correct: bool
+    user_label: Optional[str] = None
+
+@app.post("/feedback")
+def submit_feedback(body: FeedbackInput):
+    """User xác nhận prediction đúng/sai để cải thiện model"""
+    from src.observability import log_feedback
+    log_feedback(body.text, body.predicted, body.correct, body.user_label)
+    return {"status": "ok"}
+
+@app.get("/feedback/stats")
+def feedback_stats():
+    """Thống kê accuracy dựa trên user feedback"""
+    from src.observability import get_feedback_stats
+    return get_feedback_stats()
+
 @app.get("/models")
 def list_models():
     """📦 Danh sách model versions"""

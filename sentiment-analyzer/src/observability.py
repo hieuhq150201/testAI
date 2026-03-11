@@ -83,3 +83,37 @@ def get_stats():
     }
 
 init_db()
+
+
+# ── User Feedback ─────────────────────────────────────────────────
+def _init_feedback_table():
+    conn = _get_conn()
+    conn.execute("""CREATE TABLE IF NOT EXISTS feedback (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        text TEXT,
+        predicted TEXT,
+        correct INTEGER,
+        user_label TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )""")
+    conn.commit()
+
+def log_feedback(text: str, predicted: str, correct: bool, user_label: str = None):
+    _init_feedback_table()
+    conn = _get_conn()
+    conn.execute(
+        "INSERT INTO feedback(text, predicted, correct, user_label) VALUES(?,?,?,?)",
+        (text, predicted, 1 if correct else 0, user_label)
+    )
+    conn.commit()
+
+def get_feedback_stats() -> dict:
+    _init_feedback_table()
+    conn = _get_conn()
+    total = conn.execute("SELECT COUNT(*) FROM feedback").fetchone()[0]
+    correct = conn.execute("SELECT COUNT(*) FROM feedback WHERE correct=1").fetchone()[0]
+    return {
+        "total": total,
+        "correct": correct,
+        "accuracy": round(correct / total, 4) if total else None,
+    }
