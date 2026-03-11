@@ -223,10 +223,15 @@ async def analyze_video_endpoint(
         result = analyze_video_bytes(content, file.filename or 'upload.mp4')
         log_prediction(
             text=f"[VIDEO:{file.filename}]",
-            sentiment=result.get('sentiment','neutral'),
-            confidence=result.get('confidence', 0.5),
-            language='video',
-            method=result.get('method','facial_emotion_deepface')
+            result={
+                "sentiment": result.get("sentiment", "neutral"),
+                "confidence": result.get("confidence", 0.5),
+                "positive_prob": result.get("positive_prob", 0.5),
+                "negative_prob": result.get("negative_prob", 0.5),
+                "method": result.get("method", "facial_emotion_deepface"),
+                "language": "video",
+            },
+            source="video"
         )
         return result
     except Exception as e:
