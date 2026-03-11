@@ -178,3 +178,72 @@ class TestVideoAnalyzer:
         for e in EMOTIONS:
             assert e in POSITIVE_EMOTIONS or e in NEGATIVE_EMOTIONS or e == 'neutral', \
                 f"{e} không được map"
+
+
+# ── Sprint 10 QA fixes ─────────────────────────────────────────────
+
+class TestEmojiSentiment:
+    def test_emoji_score_positive(self):
+        from src.multilingual import emoji_score
+        assert emoji_score("tuyệt vời 😍❤️🔥") > 0
+
+    def test_emoji_score_negative(self):
+        from src.multilingual import emoji_score
+        assert emoji_score("thất vọng 💀😭😤") < 0
+
+    def test_emoji_score_mixed(self):
+        from src.multilingual import emoji_score
+        # 2 positive, 2 negative → 0
+        score = emoji_score("😍😊💀😭")  # 2 pos, 2 neg
+        assert score == 0.0
+
+    def test_emoji_score_no_emoji(self):
+        from src.multilingual import emoji_score
+        assert emoji_score("great movie no emoji") == 0.0
+
+    def test_apply_emoji_blend_missing_keys(self):
+        from src.multilingual import _apply_emoji_blend
+        result = {"sentiment": "positive", "confidence": 0.8}  # no positive_prob
+        out = _apply_emoji_blend(result, "😍😍")
+        assert out == result  # guard: return unchanged
+
+    def test_apply_emoji_blend_weight(self):
+        from src.multilingual import _apply_emoji_blend
+        base = {"positive_prob": 0.8, "negative_prob": 0.2,
+                "sentiment": "positive", "confidence": 0.8}
+        out = _apply_emoji_blend(base, "💀💀💀")  # all negative emoji
+        assert out["positive_prob"] < 0.8  # emoji pulled it down
+        assert "emoji_score" in out
+        assert out["emoji_score"] < 0
+
+
+class TestFeedbackAPI:
+    def test_feedback_post(self, client):
+        resp = client.post("/feedback", json={
+            "text": "phim hay", "predicted": "positive",
+            "correct": True, "user_label": None
+        })
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "ok"
+
+    def test_feedback_stats_empty(self, client):
+        resp = client.get("/feedback/stats")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "total" in data
+        assert "accuracy" in data
+
+    def test_feedback_stats_accuracy(self, client):
+        # Post 2 correct, 1 wrong
+        for correct in [True, True, False]:
+            client.post("/feedback", json={
+                "text": "test", "predicted": "positive", "correct": correct
+            })
+        resp = client.get("/feedback/stats")
+        data = resp.json()
+        assert data["total"] >= 3
+        assert data["correct"] >= 2
+
+    def test_feedback_invalid_body(self, client):
+        resp = client.post("/feedback", json={"text": "missing fields"})
+        assert resp.status_code == 422

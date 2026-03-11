@@ -73,6 +73,9 @@ def _apply_emoji_blend(result: dict, text: str) -> dict:
     e = emoji_score(text)
     if e == 0.0:
         return result
+    # Guard: ensure required keys exist
+    if "positive_prob" not in result or "negative_prob" not in result:
+        return result
     adj_pos = result["positive_prob"] * 0.8 + (0.5 + e * 0.5) * 0.2
     adj_neg = round(1.0 - adj_pos, 4)
     adj_pos = round(adj_pos, 4)

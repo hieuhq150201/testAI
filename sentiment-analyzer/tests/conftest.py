@@ -25,3 +25,14 @@ def predict_fn(model):
                 "pos_prob": float(proba[1]),
                 "neg_prob": float(proba[0])}
     return _predict
+
+@pytest.fixture(scope="function")
+def client(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+    # Use temp DB for isolation
+    monkeypatch.setenv("SENTIMENT_DB_PATH", str(tmp_path / "test.db"))
+    import src.observability as obs
+    obs.DB_PATH = str(tmp_path / "test.db")
+    obs._conn = None  # reset connection
+    from api.main import app
+    return TestClient(app)
